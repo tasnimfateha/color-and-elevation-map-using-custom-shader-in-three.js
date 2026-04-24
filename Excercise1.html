@@ -50,7 +50,8 @@
     {
       "imports": {
         "three": "https://unpkg.com/three@0.132.2/build/three.module.js",
-        "OrbitControls": "https://unpkg.com/three@0.132.2/examples/jsm/controls/OrbitControls.js"
+        "OrbitControls": "https://unpkg.com/three@0.132.2/examples/jsm/controls/OrbitControls.js",
+        "VRButton": "https://unpkg.com/three@0.132.2/examples/jsm/webxr/VRButton.js"
       }
     }
   </script>
@@ -72,6 +73,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'OrbitControls';
+    import { VRButton } from 'VRButton';
     import { shaderFunctions } from './main.js';
 
     const modeSelect = document.getElementById('modeSelect');
@@ -94,7 +96,14 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Enable WebXR / VR
+    renderer.xr.enabled = true;
+
     document.body.appendChild(renderer.domElement);
+
+    // Add the Enter VR button
+    document.body.appendChild(VRButton.createButton(renderer));
 
     // controls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -103,7 +112,7 @@
 
     // grid
     const grid = new THREE.GridHelper(3, 10, 0x666666, 0x333333);
-    grid.position.y = -0.5;
+    grid.position.y = -1.0;
     scene.add(grid);
 
     // frame function
@@ -131,13 +140,13 @@
 
     // left side point cloud
     const pointViewGroup = new THREE.Group();
-    pointViewGroup.position.x = -0.75;
+    pointViewGroup.position.set(-0.75, -0.5, -0.5); // Aligned with the grid's position
     pointViewGroup.add(Frame());
     scene.add(pointViewGroup);
 
-    // right side density cloud
+  // right side density cloud
     const densityViewGroup = new THREE.Group();
-    densityViewGroup.position.x = 0.75;
+    densityViewGroup.position.set(0.75, -0.5, -0.5); // Aligned with the grid's position
     densityViewGroup.add(Frame());
     scene.add(densityViewGroup);
 
@@ -145,8 +154,6 @@
     const texture = new THREE.TextureLoader().load('Media/grenouille-gaus.jpg');
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
-
-
 
     // point cloud geometry
     function makePointGeometry(width, height) {
@@ -277,13 +284,15 @@
 
     // animation
     function animate() {
-      requestAnimationFrame(animate);
+      // OrbitControls are only useful outside VR
+      if (!renderer.xr.isPresenting) {
+        controls.update();
+      }
 
-      controls.update();
       renderer.render(scene, camera);
     }
 
-    animate();
+    renderer.setAnimationLoop(animate);
 
     // resize
     window.addEventListener('resize', () => {

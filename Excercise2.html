@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Shader Color Elevation Map</title>
+  <title>Shader Color Elevation Map VR</title>
 
   <style>
     html, body {
@@ -51,7 +51,8 @@
     {
       "imports": {
         "three": "https://unpkg.com/three@0.132.2/build/three.module.js",
-        "OrbitControls": "https://unpkg.com/three@0.132.2/examples/jsm/controls/OrbitControls.js"
+        "OrbitControls": "https://unpkg.com/three@0.132.2/examples/jsm/controls/OrbitControls.js",
+        "VRButton": "https://unpkg.com/three@0.132.2/examples/jsm/webxr/VRButton.js"
       }
     }
   </script>
@@ -80,6 +81,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'OrbitControls';
+    import { VRButton } from 'VRButton';
     import { shaderFunctions } from './main.js';
 
     const modeSelect = document.getElementById('modeSelect');
@@ -94,20 +96,30 @@
       0.1,
       1000
     );
+
     camera.position.set(1.8, 1.6, 1.8);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+
+    renderer.xr.enabled = true;
+
     document.body.appendChild(renderer.domElement);
+
+    document.body.appendChild(VRButton.createButton(renderer));
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.target.set(0, 0, 0);
 
+    const world = new THREE.Group();
+    scene.add(world);
+
     const grid = new THREE.GridHelper(3, 10, 0x666666, 0x333333);
     grid.position.y = -0.5;
-    scene.add(grid);
+    world.add(grid);
 
     function Frame() {
       const frame = new THREE.Group();
@@ -125,14 +137,16 @@
         ),
         0xcccccc
       );
+
       frame.add(box);
 
       return frame;
     }
 
-    scene.add(Frame());
+    world.add(Frame());
 
     const texture = new THREE.TextureLoader().load('Media/grenouille-gaus.jpg');
+
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
@@ -143,6 +157,7 @@
         uMode: { value: 0 },
         uChannel: { value: 0 }
       },
+
       vertexShader: `
         uniform int uChannel;
         varying vec3 vColor;
@@ -171,6 +186,7 @@
           gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
         }
       `,
+
       fragmentShader: `
         varying vec3 vColor;
 
@@ -178,6 +194,7 @@
           gl_FragColor = vec4(vColor, 1.0);
         }
       `,
+
       side: THREE.DoubleSide
     });
 
@@ -187,7 +204,7 @@
     heightMesh.rotation.x = -Math.PI / 2;
     heightMesh.frustumCulled = false;
 
-    scene.add(heightMesh);
+    world.add(heightMesh);
 
     const channelLabels = [
       ['R', 'G', 'B'],
@@ -206,8 +223,10 @@
 
       for (let i = 0; i < labels.length; i++) {
         const option = document.createElement('option');
+
         option.value = i;
         option.textContent = labels[i];
+
         channelSelect.appendChild(option);
       }
 
@@ -235,13 +254,14 @@
     updateMode();
 
     function animate() {
-      requestAnimationFrame(animate);
-
       controls.update();
+
       renderer.render(scene, camera);
     }
 
-    animate();
+    // In normal desktop mode, this works like requestAnimationFrame.
+    // In VR mode, this connects the render loop to the headset.
+    renderer.setAnimationLoop(animate);
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
